@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEON ECHO: Blind Cyber Heist</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', monospace; user-select: none; }
+        body { background-color: #020204; color: #fff; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; padding: 10px; }
+        
+        /* Top Navigation and Status HUD */
+        #hud-top { width: 100%; max-width: 800px; display: flex; justify-content: space-between; align-items: center; background: #070f18; border: 2px solid #0d1b2a; border-bottom: none; padding: 10px 15px; border-radius: 8px 8px 0 0; font-size: 0.95rem; font-weight: bold; color: #00ffcc; text-shadow: 0 0 5px rgba(0,255,204,0.5); }
+        .hud-buttons { display: flex; gap: 8px; }
+        .hud-btn { background: rgba(0, 255, 204, 0.1); border: 1px solid #00ffcc; color: #00ffcc; padding: 5px 12px; font-size: 0.8rem; font-weight: bold; cursor: pointer; border-radius: 4px; transition: 0.2s; }
+        .hud-btn:hover { background: #00ffcc; color: #000; box-shadow: 0 0 10px rgba(0,255,204,0.5); }
+
+        #game-container { position: relative; box-shadow: 0 0 50px rgba(0, 255, 204, 0.1); border-radius: 0 0 8px 8px; border: 2px solid #0d1b2a; width: 100%; max-width: 800px; }
+        canvas { background: #010102; display: block; width: 100%; height: auto; max-height: 65vh; object-fit: contain; }
+        
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 2, 4, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; transition: opacity 0.3s ease; }
+        .overlay.hide { opacity: 0; pointer-events: none; }
+        h1 { font-size: 3.5rem; font-weight: 900; letter-spacing: 5px; margin-bottom: 15px; color: #00ffcc; text-shadow: 0 0 20px rgba(0,255,204,0.5); text-align: center; }
+        h2 { font-size: 1.8rem; color: #00ffcc; margin-bottom: 20px; letter-spacing: 2px; text-transform: uppercase; text-align: center; }
+        p { color: #8fa0b5; font-size: 1rem; margin-bottom: 20px; text-align: center; max-width: 500px; line-height: 1.6; }
+        
+        .btn { background: transparent; border: 2px solid #00ffcc; color: #00ffcc; padding: 12px 35px; font-size: 1.1rem; font-weight: bold; letter-spacing: 2px; cursor: pointer; transition: 0.2s; margin: 5px; }
+        .btn:hover { background: #00ffcc; color: #000; box-shadow: 0 0 25px rgba(0,255,204,0.6); }
+        
+        .mode-select { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+        .btn-mode { padding: 6px 15px; font-size: 0.85rem; border: 1px solid #8fa0b5; color: #8fa0b5; background: transparent; cursor: pointer; font-weight: bold; }
+        .btn-mode.active { border-color: #ffe600; color: #ffe600; background: rgba(255,230,0,0.05); box-shadow: 0 0 10px rgba(255,230,0,0.2); }
+
+        #game-over-screen h1 { color: #ff0055; text-shadow: 0 0 20px rgba(255,0,85,0.5); }
+        #game-over-screen .btn { border-color: #ff0055; color: #ff0055; }
+        #game-over-screen .btn:hover { background: #ff0055; color: #fff; }
+        #win-screen h1 { color: #ffe600; text-shadow: 0 0 20px rgba(255,230,0,0.5); }
+        
+        #achievement-popup { position: absolute; top: 15px; right: 15px; background: rgba(5, 12, 22, 0.95); border: 2px solid #ffe600; padding: 12px; max-width: 280px; font-size: 0.8rem; color: #ffe600; border-radius: 6px; pointer-events: none; z-index: 6; opacity: 0; transform: translateY(-10px); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 0 20px rgba(255, 230, 0, 0.3); }
+        #achievement-popup.show { opacity: 1; transform: translateY(0); }
+
+        /* Cyber Shop Design Elements */
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 90%; max-width: 650px; max-height: 280px; overflow-y: auto; padding-right: 5px; margin-bottom: 15px; }
+        .shop-item { background: rgba(13, 27, 42, 0.8); border: 1px solid #1f3a52; padding: 8px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .shop-item.owned { border-color: #ffe600; background: rgba(255, 230, 0, 0.05); }
+        .shop-info h4 { color: #00ffcc; font-size: 0.85rem; margin-bottom: 2px; }
+        .shop-info p { color: #8fa0b5; font-size: 0.7rem; margin-bottom: 0; text-align: left; }
+        .shop-buy-btn { background: #ffe600; color: #000; border: none; font-weight: bold; font-size: 0.75rem; padding: 6px 10px; cursor: pointer; border-radius: 3px; }
+        .shop-buy-btn:hover { background: #fff; box-shadow: 0 0 10px #ffe600; }
+        .shop-buy-btn:disabled { background: #2a3a4a; color: #5a6a7a; cursor: not-allowed; box-shadow: none; }
+
+        .instructions-content { width: 90%; max-width: 600px; max-height: 250px; overflow-y: auto; padding: 20px; border: 1px solid #1f3a52; background: rgba(5, 12, 22, 0.9); margin-bottom: 25px; border-radius: 4px; text-align: left; }
+        .instructions-content h3 { color: #ffe600; margin-top: 15px; margin-bottom: 5px; font-size: 1.1rem; }
+        .instructions-content p { text-align: left; font-size: 0.9rem; margin-bottom: 15px; color: #a4b8cd; }
+
+        #mobile-controls { display: none; margin-top: 15px; text-align: center; width: 100%; }
+        .control-row { display: block; margin: 4px 0; }
+        .ctrl-btn { background: rgba(0, 255, 204, 0.05); border: 2px solid rgba(0, 255, 204, 0.4); color: #00ffcc; width: 65px; height: 55px; font-size: 1.6rem; margin: 0 6px; border-radius: 6px; touch-action: manipulation; cursor: pointer; transition: 0.1s; }
+        .ctrl-btn:active { background: #00ffcc; color: #000; box-shadow: 0 0 15px rgba(0,255,204,0.6); border-color: #00ffcc; }
+
+        @media (max-width: 850px) { #mobile-controls.visible { display: block; } }
+        @media (max-width: 600px) {
+            h1 { font-size: 2rem; letter-spacing: 2px; }
+            h2 { font-size: 1.3rem; }
+            p { font-size: 0.85rem; margin-bottom: 15px; padding: 0 10px; }
+            .btn { padding: 10px 20px; font-size: 0.95rem; }
+            .shop-grid { grid-template-columns: 1fr; max-height: 200px; }
+            .instructions-content { max-height: 180px; padding: 10px; }
+            #hud-top { font-size: 0.75rem; padding: 8px 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="hud-top">
+        <div id="hud-data">MODE: NORMAL | LAYER: 1 | COINS: 0</div>
+        <div class="hud-buttons">
+            <button class="hud-btn" id="hud-shop-btn" style="display:none;" onclick="showShop()">🛒 SHOP</button>
+            <button class="hud-btn" id="hud-home-btn" style="display:none;" onclick="exitToHome()">🏠 HOME</button>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div id="achievement-popup">
+            <div style="font-weight: bold; letter-spacing: 1px; color: #00ffcc;">🏆 ACHIEVEMENT UNLOCKED!</div>
+            <div id="ach-title" style="margin-top: 4px; font-weight: 900; color: #ffe600;">TITLE</div>
+            <div id="ach-desc" style="color: #a4b8cd; font-size: 0.75rem; margin-top: 2px;">Description</div>
+            <div style="color: #ffe600; font-size: 0.75rem; font-weight: bold; margin-top: 3px;">💰 BONUS +10 COINS CLAIMED!</div>
+        </div>
+        
+        <div id="start-screen" class="overlay">
+            <h1>NEON ECHO</h1>
+            <p>Procedural Cyber Labyrinth Simulation. Navigate dynamic maps using soundwaves.</p>
+            
+            <div style="color:#ffe600; font-size:0.85rem; margin-bottom:8px; letter-spacing:1px;">SELECT NODE SECURITY LEVEL:</div>
+            <div class="mode-select">
+                <button class="btn-mode active" onclick="setMode('normal', this)">NORMAL</button>
+                <button class="btn-mode" onclick="setMode('medium', this)">MEDIUM</button>
+                <button class="btn-mode" onclick="setMode('hard', this)">HARD</button>
+                <button class="btn-mode" onclick="setMode('expert', this)">EXPERT</button>
+            </div>
+
+            <button class="btn" onclick="triggerStart()">START HEIST</button>
+            <button class="btn" style="font-size: 1rem; padding: 10px 25px; border-color: #8fa0b5; color: #8fa0b5;" onclick="showHowToPlay()">HOW TO PLAY</button>
+        </div>
+
+        <div id="tutorial-screen" class="overlay hide">
+            <h2 style="color:#ffe600;">⚠️ INITIAL TRAINING DETECTED</h2>
+            <div class="instructions-content" style="border-color:#ffe600;">
+                <h3 style="color:#00ffcc;">[ SYSTEM PROTOCOL - EN ]</h3>
+                <p>• You are dropped into a <b>dynamic random maze</b>. Outer barriers are locked.<br>
+                   • Every step creates sound pulses. Use them to scan paths.<br>
+                   • 🪙 Collect golden Data Chips (Coins) scattered inside.<br>
+                   • 🏁 The exit gateway is encrypted at a <b>RANDOM LOCATION ALONG THE RIGHT SIDE</b> of the grid per layer. Locate it to loop infinitely!</p>
+                <h3 style="color:#00ffcc;">[ සිංහල උපදෙස් ]</h3>
+                <p>• ඔබව ඇතුළු කර ඇත්තේ <b>සෑම විටම වෙනස් වන වංකගිරියකටයි</b>.<br>
+                   • ඔබ ගමන් කරන විට නිකුත් වන තරංග මඟින් පාරවල් සොයාගන්න.<br>
+                   • සිතියමේ ඇති රන්වන් පැහැති දත්ත Chips (Coins) එකතු කරන්න.<br>
+                   • 🏁 පිටවීමේ ද්වාරය (Exit Gate) සැමවිටම <b>දකුණු පැත්තේ ඕනෑම අහඹු ස්ථානයක (Random Place)</b> පිහිටයි. එතැනට ගොස් අනන්ත මට්ටම් කරා යන්න!</p>
+            </div>
+            <button class="btn" style="border-color:#ffe600; color:#ffe600;" onclick="dismissTutorial()">I UNDERSTAND</button>
+        </div>
+
+        <div id="shop-screen" class="overlay hide">
+            <h2 style="color: #ffe600; margin-bottom: 10px;">MARKET DECK SYSTEM</h2>
+            <p style="font-size:0.85rem; margin-bottom:12px;">Upgrade your cybernetic mainframe nodes using gathered Data Chips.</p>
+            
+            <div class="shop-grid" id="shop-items-container">
+                </div>
+            
+            <button class="btn" style="font-size: 1rem; padding: 8px 30px; border-color: #ffe600; color:#ffe600;" onclick="hideShop()">RESUME SIMULATION</button>
+        </div>
+
+        <div id="how-to-play-screen" class="overlay hide">
+            <h2>HOW TO PLAY</h2>
+            <div class="instructions-content">
+                <h3>[ ENGLISH INSTRUCTIONS ]</h3>
+                <p>1. The entire map is pitch black. You cannot see the walls normally.<br>
+                   2. Moving around creates <b>Soundwaves (Sonar pulses)</b> that briefly reveal the environment and enemy locations.<br>
+                   3. Avoid the red enemy guard at all costs. If they touch you, your data gets wiped.<br>
+                   4. Navigate through the maze and reach the <b>Golden Exit Portal located on the right side</b>.<br>
+                   5. <b>Controls:</b> Use WASD, Arrow Keys or Mobile On-Screen buttons to move.</p>
+
+                <h3>[ සිංහල උපදෙස් ]</h3>
+                <p>1. මුළු සිතියමම සම්පූර්ණයෙන්ම අඳුරුයි. ඔබට සාමාන්‍ය පරිදි බිත්ති දැකිය නොහැක.<br>
+                   2. ඔබ ගමන් කරන විට හැදෙන <b>Soundwaves (ශබ්ද තරංග)</b> මඟින් සිතියම තත්පරයකට දැකගත හැක.<br>
+                   3. රතු පාට සතුරාගෙන් බේරී ගමන් කරන්න.<br>
+                   4. වංකගිරිය මැදින් ගොස් <b>දකුණු පැත්තේ පිහිටා ඇති Exit Portal එක</b> වෙත ළඟා වන්න.<br>
+                   5. <b>Controls:</b> ගමන් කිරීම සඳහා WASD, Arrow Keys හෝ මොබයිල් බටන්ස් භාවිතා කරන්න.</p>
+            </div>
+            <button class="btn" style="font-size: 1rem; padding: 10px 30px;" onclick="hideHowToPlay()">BACK</button>
+        </div>
+
+        <div id="game-over-screen" class="overlay hide">
+            <h1>WASTED</h1>
+            <p id="game-over-stats">Level reached: 1. Core data purged.</p>
+            <button class="btn" onclick="startGame()">TRY AGAIN</button>
+        </div>
+
+        <div id="win-screen" class="overlay hide">
+            <h1>GRID BYPASSED</h1>
+            <p>Security layer cracked successfully. Moving deeper into the core data mainframe...</p>
+            <button class="btn" onclick="nextLevel()">NEXT LAYER</button>
+        </div>
+
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+
+    <div id="mobile-controls">
+        <div class="control-row"><button class="ctrl-btn" id="btn-up">▲</button></div>
+        <div class="control-row">
+            <button class="ctrl-btn" id="btn-left">◀</button>
+            <button class="ctrl-btn" id="btn-down">▼</button>
+            <button class="ctrl-btn" id="btn-right">▶</button>
+        </div>
+    </div>
+
+    <script>
+        // Static DOM Cache references
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const hudData = document.getElementById('hud-data');
+        const hudShopBtn = document.getElementById('hud-shop-btn');
+        const hudHomeBtn = document.getElementById('hud-home-btn');
+        const achPopup = document.getElementById('achievement-popup');
+        const achTitle = document.getElementById('ach-title');
+        const achDesc = document.getElementById('ach-desc');
+        const startScreen = document.getElementById('start-screen');
+        const tutorialScreen = document.getElementById('tutorial-screen');
+        const shopScreen = document.getElementById('shop-screen');
+        const howToPlayScreen = document.getElementById('how-to-play-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const winScreen = document.getElementById('win-screen');
+        const gameOverStats = document.getElementById('game-over-stats');
+        const mobileControls = document.getElementById('mobile-controls');
+        const shopItemsContainer = document.getElementById('shop-items-container');
+
+        const prCanvas = document.createElement('canvas');
+        prCanvas.width = 800; prCanvas.height = 600;
+        const prCtx = prCanvas.getContext('2d');
+
+        const cellSize = 50;
+        let map = [];
+        let wallVis = Array(12).fill().map(() => new Float32Array(16));
+        let gateRow = 10; // Dynamic mutable gate mapping variable
+        
+        let gameActive = false;
+        let keys = {};
+        
+        // Progression State Matrix
+        let currentMode = 'normal';
+        let currentLevel = 1;
+        let totalCoins = 0;
+        let sessionCoins = 0;
+        let isFirstTime = true;
+        let unlockedAchievements = new Set();
+
+        // Upgradable Player Variable Nodes
+        const player = { x: 75, y: 75, r: 10, speed: 3.5, pulseTimer: 0 };
+        let maxWaveRadius = 200;
+        let mapFadeCoefficient = 0.012;
+        let enemySpeedMultiplier = 1.0;
+        let coinPickupMultiplierRadius = 12;
+        let activeShieldBufferCount = 0;
+        let pulseFrequencyRate = 20;
+
+        // Cyber Shop Items Registry Array
+        const shopInventory = [
+            { id: 'speed', name: 'Speed Injector', desc: 'Increases player movement speed permanent by 15%.', price: 15, purchased: false, effect: () => { player.speed += 0.55; } },
+            { id: 'sonar', name: 'Sonar Multiplier', desc: 'Expands radar soundwave pulse scan radius by +35px.', price: 20, purchased: false, effect: () => { maxWaveRadius += 35; } },
+            { id: 'shield', name: 'Cyber Shield Protection', desc: 'Survives 1 fatal system crash hit from enemy guards.', price: 45, purchased: false, effect: () => { activeShieldBufferCount++; } },
+            { id: 'magnet', name: 'Data Chip Magnet', desc: 'Expands data grid collection pickup zone matrix.', price: 25, purchased: false, effect: () => { coinPickupMultiplierRadius += 15; } },
+            { id: 'frequency', name: 'Pulse Overclocker', desc: 'Generates tracking radar echo pings 25% faster.', price: 30, purchased: false, effect: () => { pulseFrequencyRate = Math.max(12, pulseFrequencyRate - 4); } },
+            { id: 'visor', name: 'Thermal Memory Bank', desc: 'Slower wall element fading duration inside grid.', price: 35, purchased: false, effect: () => { mapFadeCoefficient = Math.max(0.006, mapFadeCoefficient - 0.003); } },
+            { id: 'scrambler', name: 'Signal Scrambler Aura', desc: 'Permanently slows down hostile rogue guard units speed.', price: 40, purchased: false, effect: () => { enemySpeedMultiplier *= 0.85; } },
+            { id: 'stabilizer', name: 'Chrono Matrix Core', desc: 'Adds processing stabilization to structural modules.', price: 50, purchased: false, effect: () => { player.r = Math.max(7, player.r - 1); } },
+            { id: 'bypass', name: 'Decoy Transmitter', desc: 'Spawns extra echo bursts upon entering new grids.', price: 60, purchased: false, effect: () => { maxWaveRadius += 20; } },
+            { id: 'mainframe', name: 'Root Mainframe Exploiter', desc: 'High tier node hack optimization matrix.', price: 85, purchased: false, effect: () => { totalCoins += 10; updateHUD(); } }
+        ];
+
+        window.addEventListener('keydown', e => keys[e.key] = true);
+        window.addEventListener('keyup', e => keys[e.key] = false);
+
+        const bindTouchBtn = (id, key) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            const start = (e) => { if (e.cancelable) e.preventDefault(); keys[key] = true; };
+            const end = (e) => { if (e.cancelable) e.preventDefault(); keys[key] = false; };
+            btn.addEventListener('touchstart', start, { passive: false });
+            btn.addEventListener('touchend', end, { passive: false });
+            btn.addEventListener('touchcancel', end, { passive: false });
+            btn.addEventListener('mousedown', () => keys[key] = true);
+            btn.addEventListener('mouseup', () => keys[key] = false);
+            btn.addEventListener('mouseleave', () => keys[key] = false);
+        };
+        bindTouchBtn('btn-up', 'w'); bindTouchBtn('btn-down', 's');
+        bindTouchBtn('btn-left', 'a'); bindTouchBtn('btn-right', 'd');
+
+        // Particle System Pool
+        const MAX_PARTICLES = 60;
+        const particlePool = Array.from({length: MAX_PARTICLES}, () => ({ active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, color: '#00ffcc' }));
+        
+        function spawnParticle(x, y, color = '#00ffcc') {
+            for (let i = 0; i < MAX_PARTICLES; i++) {
+                if (!particlePool[i].active) {
+                    let p = particlePool[i]; p.active = true; p.x = x; p.y = y;
+                    p.vx = (Math.random() - 0.5) * 2; p.vy = (Math.random() - 0.5) * 2;
+                    p.life = 1.0; p.color = color;
+                    break;
+                }
+            }
+        }
+
+        // Radar Pulse Pool
+        const MAX_WAVES = 5;
+        const wavePool = Array.from({length: MAX_WAVES}, () => ({ active: false, x: 0, y: 0, r: 0 }));
+        
+        function spawnWave(x, y) {
+            for (let i = 0; i < MAX_WAVES; i++) {
+                if (!wavePool[i].active) {
+                    wavePool[i].active = true; wavePool[i].x = x; wavePool[i].y = y; wavePool[i].r = 0;
+                    break;
+                }
+            }
+        }
+
+        function setMode(mode, btn) {
+            currentMode = mode;
+            document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updateHUD();
+        }
+
+        // Optimized Procedural Grid Maze Generator
+        function generateProceduralLabyrinth(diff) {
+            let newMap = Array(12).fill().map(() => Array(16).fill(1));
+            let wallChance = 0.25;
+            if (diff === 'medium') wallChance = 0.32;
+            if (diff === 'hard') wallChance = 0.40;
+            if (diff === 'expert') wallChance = 0.46;
+
+            for (let r = 1; r < 11; r++) {
+                for (let c = 1; c < 15; c++) {
+                    newMap[r][c] = Math.random() < wallChance ? 1 : 0;
+                }
+            }
+
+            // DYNAMIC DAKUNU PATHTA RANDOM PLACES GATE COMPILER
+            gateRow = Math.floor(Math.random() * 10) + 1; // Pick any random row 1-10 on column 14
+
+            let cr = 1, cc = 1;
+            newMap[cr][cc] = 0;
+            while (cr !== gateRow || cc !== 14) {
+                if (cc < 14 && (Math.random() < 0.5 || cr === gateRow)) cc++;
+                else if (cr < gateRow) cr++;
+                else if (cr > gateRow) cr--;
+                newMap[cr][cc] = 0;
+            }
+
+            if (diff === 'normal' || diff === 'medium') {
+                for (let i = 0; i < 15; i++) {
+                    newMap[Math.floor(Math.random() * 9) + 1][Math.floor(Math.random() * 13) + 1] = 0;
+                }
+            }
+
+            newMap[1][1] = 2; // Start Node
+            newMap[gateRow][14] = 3; // Dynamically placed right side gate node
+
+            // Spawn Data Chips
+            let coinCount = 5 + Math.floor(Math.random() * 5);
+            for (let i = 0; i < coinCount; i++) {
+                let r = Math.floor(Math.random() * 10) + 1;
+                let c = Math.floor(Math.random() * 14) + 1;
+                if (newMap[r][c] === 0 && !(r === 1 && c === 1) && !(r === gateRow && c === 14)) {
+                    newMap[r][c] = 4;
+                }
+            }
+            return newMap;
+        }
+
+        function renderMapToCache() {
+            prCtx.fillStyle = '#010102'; prCtx.fillRect(0,0,800,600);
+            for (let r = 0; r < 12; r++) {
+                for (let c = 0; c < 16; c++) {
+                    if (map[r][c] === 1) {
+                        prCtx.strokeStyle = '#3a5d7c'; prCtx.lineWidth = 1;
+                        prCtx.strokeRect(c * cellSize, r * cellSize, cellSize, cellSize);
+                        prCtx.fillStyle = 'rgba(0, 255, 204, 0.08)';
+                        prCtx.fillRect(c * cellSize + 2, r * cellSize + 2, cellSize - 4, cellSize - 4);
+                    } else if (map[r][c] === 3) {
+                        prCtx.fillStyle = '#ffe600'; prCtx.shadowBlur = 20; prCtx.shadowColor = '#ffe600';
+                        prCtx.beginPath(); prCtx.arc(c * cellSize + 25, r * cellSize + 25, 16, 0, 6.283); prCtx.fill();
+                        prCtx.shadowBlur = 0; prCtx.strokeStyle = '#fff'; prCtx.lineWidth = 2;
+                        prCtx.strokeRect(c * cellSize + 10, r * cellSize + 10, 30, 30);
+                    }
+                }
+            }
+        }
+
+        // Infinite Achievement Memory Processor
+        function checkInfiniteAchievements() {
+            if (currentLevel % 5 === 0 || currentLevel === 2) {
+                let id = `lvl_milestone_${currentLevel}`;
+                if (!unlockedAchievements.has(id)) {
+                    let romanArr = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+                    let suffix = romanArr[Math.floor(currentLevel / 5) % 10] || `NX-${currentLevel}`;
+                    triggerAchievementPopup(id, `LAYER BREAKER ${suffix}`, `Infiltrated network terminal layer ${currentLevel}.`);
+                }
+            }
+            if (totalCoins > 0 && totalCoins % 15 === 0) {
+                let id = `coin_milestone_${totalCoins}`;
+                if (!unlockedAchievements.has(id)) {
+                    triggerAchievementPopup(id, `DATA HOARDER LVL ${Math.floor(totalCoins/15)}`, `Harvested ${totalCoins} glowing encryption cores.`);
+                }
+            }
+        }
+
+        function triggerAchievementPopup(id, title, desc) {
+            unlockedAchievements.add(id);
+            totalCoins += 10; // Rewards small balanced amount of coins
+            updateHUD();
+            achTitle.innerText = title; achDesc.innerText = desc;
+            achPopup.classList.add('show');
+            setTimeout(() => achPopup.classList.remove('show'), 4000);
+        }
+
+        function spawnDynamicEnemies() {
+            enemies = [];
+            let count = (currentMode === 'normal') ? 1 : (currentMode === 'medium') ? 2 : (currentMode === 'hard') ? 3 : 4;
+            count += Math.floor(currentLevel / 3); count = Math.min(count, 7);
+
+            for (let i = 0; i < count; i++) {
+                let r = Math.floor(Math.random() * 8) + 3;
+                let c = Math.floor(Math.random() * 10) + 4;
+                enemies.push({
+                    x: c * cellSize + 25, y: r * cellSize + 25, r: 12,
+                    baseX: c * cellSize + 25, angle: Math.random() * 6.28,
+                    speed: (0.02 + (Math.random() * 0.015) + (currentMode === 'expert' ? 0.018 : 0)) * enemySpeedMultiplier,
+                    patrolRange: 50 + Math.random() * 80, visible: false
+                });
+            }
+        }
+
+        function updateHUD() {
+            hudData.innerHTML = `MODE: ${currentMode.toUpperCase()} | LAYER: ${currentLevel} | COINS: ${totalCoins} ${activeShieldBufferCount > 0 ? '🛡️' : ''}`;
+        }
+
+        // Shop Interface Logic
+        function renderShopItems() {
+            shopItemsContainer.innerHTML = '';
+            shopInventory.forEach(item => {
+                let node = document.createElement('div');
+                node.className = `shop-item ${item.purchased ? 'owned' : ''}`;
+                node.innerHTML = `
+                    <div class="shop-info">
+                        <h4>${item.name}</h4>
+                        <p>${item.desc}</p>
+                        <div style="color: #ffe600; font-size: 0.75rem; font-weight: bold; margin-top: 2px;">⚡ COST: ${item.price} COINS</div>
+                    </div>
+                    <button class="shop-buy-btn" ${item.purchased || totalCoins < item.price ? 'disabled' : ''} onclick="buyShopItem('${item.id}')">
+                        ${item.purchased ? 'OWNED' : 'BUY'}
+                    </button>
+                `;
+                shopItemsContainer.appendChild(node);
+            });
+        }
+
+        function buyShopItem(id) {
+            let item = shopInventory.find(x => x.id === id);
+            if (item && !item.purchased && totalCoins >= item.price) {
+                totalCoins -= item.price;
+                if(item.id !== 'mainframe' && item.id !== 'shield') item.purchased = true; // Consumables can be bought repeatedly
+                item.effect();
+                updateHUD();
+                renderShopItems();
+            }
+        }
+
+        function showShop() { if(gameActive) { shopScreen.classList.remove('hide'); renderShopItems(); } }
+        function hideShop() { shopScreen.classList.add('hide'); }
+
+        function triggerStart() {
+            if (isFirstTime) { startScreen.classList.add('hide'); tutorialScreen.classList.remove('hide'); } 
+            else { startGame(); }
+        }
+
+        function dismissTutorial() { isFirstTime = false; tutorialScreen.classList.add('hide'); startGame(); }
+
+        function startGame() {
+            startScreen.classList.add('hide'); gameOverScreen.classList.add('hide');
+            winScreen.classList.add('hide'); howToPlayScreen.classList.add('hide');
+            tutorialScreen.classList.add('hide'); shopScreen.classList.add('hide');
+
+            map = generateProceduralLabyrinth(currentMode);
+            renderMapToCache();
+
+            for (let r = 0; r < 12; r++) wallVis[r].fill(0);
+            wavePool.forEach(w => w.active = false); particlePool.forEach(p => p.active = false);
+
+            player.x = 75; player.y = 75; player.pulseTimer = 0;
+            spawnDynamicEnemies(); spawnWave(player.x, player.y);
+
+            gameActive = true;
+            
+            // Handle visibility state elements conditionally
+            hudShopBtn.style.display = 'block';
+            hudHomeBtn.style.display = 'block';
+            mobileControls.classList.add('visible');
+            updateHUD();
+        }
+
+        function exitToHome() {
+            gameActive = false;
+            hudShopBtn.style.display = 'none';
+            hudHomeBtn.style.display = 'none';
+            mobileControls.classList.remove('visible');
+            shopScreen.classList.add('hide');
+            winScreen.classList.add('hide');
+            gameOverScreen.classList.add('hide');
+            startScreen.classList.remove('hide');
+        }
+
+        function nextLevel() { currentLevel++; checkInfiniteAchievements(); startGame(); }
+
+        function checkCol(x, y, radius) {
+            let sc = Math.max(0, ~~((x - radius) / cellSize)); let ec = Math.min(15, ~~((x + radius) / cellSize));
+            let sr = Math.max(0, ~~((y - radius) / cellSize)); let er = Math.min(11, ~~((y + radius) / cellSize));
+
+            for (let r = sr; r <= er; r++) {
+                for (let c = sc; c <= ec; c++) {
+                    let type = map[r][c];
+                    if (type === 1) {
+                        let cx = Math.max(c * cellSize, Math.min(x, c * cellSize + cellSize));
+                        let cy = Math.max(r * cellSize, Math.min(y, r * cellSize + cellSize));
+                        if ((x - cx)*(x - cx) + (y - cy)*(y - cy) < radius * radius) return true;
+                    }
+                    else if (type === 4) { // Grid Node Coins Processing
+                        let cx = c * cellSize + 25, cy = r * cellSize + 25;
+                        if ((x - cx)*(x - cx) + (y - cy)*(y - cy) < (radius + coinPickupMultiplierRadius)*(radius + coinPickupMultiplierRadius)) {
+                            map[r][c] = 0; totalCoins++; sessionCoins++; updateHUD(); checkInfiniteAchievements();
+                            for(let k=0; k<6; k++) spawnParticle(cx, cy, '#ffe600');
+                        }
+                    }
+                    else if (type === 3) { // Dynamic Right Side Gate Processing Core Check
+                        let wx = c * cellSize + 25, wy = r * cellSize + 25;
+                        if ((x - wx)*(x - wx) + (y - wy)*(y - wy) < (radius + 16)*(radius + 16)) {
+                            if (gameActive) { gameActive = false; winScreen.classList.remove('hide'); }
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function hitHostileGuard() {
+            if (activeShieldBufferCount > 0) {
+                activeShieldBufferCount--;
+                updateHUD();
+                spawnWave(player.x, player.y);
+                for(let k=0; k<15; k++) spawnParticle(player.x, player.y, '#ffe600');
+                // Temporarily repel enemies back
+                spawnDynamicEnemies();
+                return;
+            }
+            endGame();
+        }
+
+        function endGame() {
+            if (!gameActive) return; gameActive = false;
+            hudShopBtn.style.display = 'none'; hudHomeBtn.style.display = 'none';
+            mobileControls.classList.remove('visible');
+            gameOverStats.innerText = `Mainframe guard caught you at Layer ${currentLevel}. Recovered ${sessionCoins} Node Clusters.`;
+            currentLevel = 1; sessionCoins = 0;
+            gameOverScreen.classList.remove('hide');
+        }
+
+        function showHowToPlay() { howToPlayScreen.classList.remove('hide'); }
+        function hideHowToPlay() { howToPlayScreen.classList.add('hide'); }
+
+        function loop() {
+            ctx.fillStyle = '#020204'; ctx.fillRect(0, 0, 800, 600);
+
+            if (gameActive) {
+                let dx = 0, dy = 0;
+                if (keys['ArrowUp'] || keys['w'] || keys['W']) dy = -player.speed;
+                if (keys['ArrowDown'] || keys['s'] || keys['S']) dy = player.speed;
+                if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx = -player.speed;
+                if (keys['ArrowRight'] || keys['d'] || keys['D']) dx = player.speed;
+
+                if (dx !== 0 || dy !== 0) {
+                    if (!checkCol(player.x + dx, player.y, player.r)) player.x += dx;
+                    if (!checkCol(player.x, player.y + dy, player.r)) player.y += dy;
+
+                    player.pulseTimer++;
+                    if (player.pulseTimer % pulseFrequencyRate === 0) spawnWave(player.x, player.y);
+                    if (Math.random() < 0.3) spawnParticle(player.x, player.y, '#00ffcc');
+                }
+
+                for (let i = 0; i < enemies.length; i++) {
+                    let en = enemies[i]; en.angle += en.speed;
+                    let nx = en.baseX + Math.sin(en.angle) * en.patrolRange;
+                    if (!checkCol(nx, en.y, en.r)) en.x = nx; else en.angle += 3.14;
+
+                    let edx = player.x - en.x, edy = player.y - en.y;
+                    if (edx * edx + edy * edy < (player.r + en.r) * (player.r + en.r)) hitHostileGuard();
+                    en.visible = false;
+                }
+            }
+
+            // Wave Radar Pulse Engine Calculations
+            for (let i = 0; i < MAX_WAVES; i++) {
+                let w = wavePool[i];
+                if (w.active) {
+                    w.r += 4.5;
+                    if (w.r > maxWaveRadius) w.active = false;
+                    else {
+                        let sc = Math.max(0, ~~((w.x - w.r - 20) / cellSize)); let ec = Math.min(15, ~~((w.x + w.r + 20) / cellSize));
+                        let sr = Math.max(0, ~~((w.y - w.r - 20) / cellSize)); let er = Math.min(11, ~~((w.y + w.r + 20) / cellSize));
+
+                        for (let r = sr; r <= er; r++) {
+                            for (let c = sc; c <= ec; c++) {
+                                if (map[r][c] !== 0) {
+                                    let tx = c * cellSize + 25, ty = r * cellSize + 25;
+                                    if (Math.abs(Math.sqrt((tx - w.x)*(tx - w.x) + (ty - w.y)*(ty - w.y)) - w.r) < 20) {
+                                        wallVis[r][c] = 1.0;
+                                    }
+                                }
+                            }
+                        }
+                        for (let k = 0; k < enemies.length; k++) {
+                            let en = enemies[k];
+                            if (Math.abs(Math.sqrt((en.x - w.x)*(en.x - w.x) + (en.y - w.y)*(en.y - w.y)) - w.r) < 30) en.visible = true;
+                        }
+                    }
+                }
+            }
+
+            // Map Rendering Blit
+            for (let r = 0; r < 12; r++) {
+                for (let c = 0; c < 16; c++) {
+                    let vis = wallVis[r][c];
+                    if (vis > 0) {
+                        ctx.globalAlpha = vis;
+                        ctx.drawImage(prCanvas, c * cellSize, r * cellSize, cellSize, cellSize, c * cellSize, r * cellSize, cellSize, cellSize);
+                        if (map[r][c] === 4) {
+                            ctx.fillStyle = '#ffe600'; ctx.shadowBlur = 10; ctx.shadowColor = '#ffe600';
+                            ctx.beginPath(); ctx.arc(c * cellSize + 25, r * cellSize + 25, 6, 0, 6.28); ctx.fill();
+                            ctx.shadowBlur = 0;
+                        }
+                        wallVis[r][c] -= mapFadeCoefficient;
+                    }
+                }
+            }
+
+            // Radar Ring Graphics Pipeline
+            ctx.lineWidth = 2; ctx.strokeStyle = '#00ffcc';
+            for (let i = 0; i < MAX_WAVES; i++) {
+                let w = wavePool[i];
+                if (w.active) {
+                    ctx.globalAlpha = 1 - (w.r / maxWaveRadius);
+                    ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, 6.283); ctx.stroke();
+                }
+            }
+
+            // FX Particles Pipeline
+            for (let i = 0; i < MAX_PARTICLES; i++) {
+                let p = particlePool[i];
+                if (p.active) {
+                    p.x += p.vx; p.y += p.vy; p.life -= 0.025;
+                    if (p.life <= 0) p.active = false;
+                    else {
+                        ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
+                        ctx.fillRect(p.x, p.y, 3, 3);
+                    }
+                }
+            }
+
+            ctx.globalAlpha = 1.0;
+            if (gameActive) {
+                ctx.fillStyle = '#00ffcc';
+                ctx.beginPath(); ctx.arc(player.x, player.y, player.r, 0, 6.283); ctx.fill();
+
+                for (let i = 0; i < enemies.length; i++) {
+                    let en = enemies[i];
+                    if (en.visible) {
+                        ctx.fillStyle = '#ff0055'; ctx.shadowBlur = 10; ctx.shadowColor = '#ff0055';
+                        ctx.beginPath(); ctx.arc(en.x, en.y, en.r, 0, 6.283); ctx.fill();
+                        ctx.shadowBlur = 0;
+                    }
+                }
+            }
+            requestAnimationFrame(loop);
+        }
+
+        // Initialize Core System Grid Configuration
+        map = generateProceduralLabyrinth('normal');
+        loop();
+    </script>
+</body>
+</html>
