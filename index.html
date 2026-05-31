@@ -665,5 +665,52 @@
         map = generateProceduralLabyrinth('normal');
         loop();
     </script>
+    <!-- ========================================== -->
+<!-- CYBERPUNK FEEDBACK BUTTON MODULE (ALL-IN-ONE) -->
+<!-- ========================================== -->
+<style>
+    /* Feedback Button Static Styling Area */
+    #feedback-btn {
+        position: fixed;
+        top: 15px; /* Adjust this to match your hud top position */
+        right: 170px; /* Positions it nicely next to Home/Shop buttons */
+        background: rgba(255, 193, 7, 0.15);
+        border: 1px solid #ffc107;
+        color: #ffc107;
+        padding: 5px 12px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        font-family: 'Courier New', monospace;
+        cursor: pointer;
+        border-radius: 4px;
+        z-index: 100; /* Keeps it on top of the game canvas */
+        transition: 0.2s ease;
+        text-shadow: 0 0 5px rgba(255,193,7,0.5);
+    }
+    #feedback-btn:hover {
+        background: #ffc107;
+        color: #000;
+        box-shadow: 0 0 15px #ffc107;
+        text-shadow: none;
+    }
+    /* Mobile responsive shift */
+    @media (max-width: 600px) {
+        #feedback-btn { font-size: 0.75rem; padding: 4px 8px; right: 130px; top: 12px; }
+    }
+</style>
+
+<!-- The Button Element -->
+<button id="feedback-btn" onclick="openFeedbackWindow()">📝 FEEDBACK</button>
+
+<script>
+    /* Direct Link Activation Logic */
+    function openFeedbackWindow() {
+        
+        const myGoogleFormUrl = "https://forms.gle/WjxTzRkxqrjEjFS47";
+        window.open(myGoogleFormUrl, '_blank');
+    }
+</script>
+<!-- ========================================== -->
+
 </body>
 </html>
